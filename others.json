@@ -83,9 +83,7 @@
       }
     ],
     "rarityThresholds": {
-      "normal": 7400,
-      "rare": 2100,
-      "superRare": 500
+      "normal": 10000,
     }
   }
 }
