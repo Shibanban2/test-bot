@@ -34,9 +34,9 @@ function simulateNC(seeds, others) {
     const slotIndex = s1 % slots.length;
     const rarityRand = Math.abs(s2 % 10000);
 
-    let rarity = 'ノーマル';
-    if (rarityRand >= thresholds.normal && rarityRand < thresholds.rare) rarity = 'レア';
-    if (rarityRand >= thresholds.rare) rarity = '激レア';
+    // レアリティを常に「ノーマル」に固定
+let rarity = 'ノーマル';
+
 
     results.push({
       roll: i + 1,
