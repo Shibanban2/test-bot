@@ -1,0 +1,31 @@
+body {
+  background: #111;
+  color: #eee;
+  font-family: sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+
+#controls {
+  margin-bottom: 20px;
+}
+
+table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  width: 90%;
+  max-width: 600px;
+}
+
+th, td {
+  border: 1px solid #444;
+  padding: 8px;
+}
+
+th {
+  background: #222;
+}
+
+tbody tr:nth-child(odd) {
+  background: #1a1a1a;
+}
