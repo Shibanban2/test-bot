@@ -1,32 +1,35 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NCガチャシミュレーター</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>NCガチャシミュレーター（レア被りなし）</h1>
+  <h1>NCガチャシミュレーター</h1>
 
-  <div id="controls">
-    <label for="seedInput">シード値：</label>
-    <input type="number" id="seedInput" value="123456789">
-    <button id="drawButton">10連を表示</button>
+  <div class="controls">
+    <label for="seedInput">初期シード値：</label>
+    <input type="number" id="seedInput" value="123456789" />
+    <button id="simulateButton">10連実行</button>
   </div>
 
-  <table id="results">
+  <table>
     <thead>
       <tr>
-        <th>#</th>
-        <th>スロット番号</th>
-        <th>キャラ/アイテム</th>
-        <th>レアリティ</th>
+        <th>回数</th>
+        <th>seed1</th>
+        <th>seed2</th>
+        <th>mod</th>
+        <th>slot</th>
+        <th>キャラ</th>
       </tr>
     </thead>
-    <tbody></tbody>
+    <tbody id="resultBody"></tbody>
   </table>
 
   <script src="main.js"></script>
 </body>
 </html>
+
