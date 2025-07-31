@@ -1,31 +1,49 @@
 body {
-  background: #111;
+  background-color: #111;
   color: #eee;
-  font-family: sans-serif;
-  text-align: center;
+  font-family: "Segoe UI", sans-serif;
   padding: 20px;
+  text-align: center;
 }
 
-#controls {
+h1 {
   margin-bottom: 20px;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+input {
+  padding: 5px;
+  font-size: 16px;
+  width: 180px;
+  margin-right: 10px;
+}
+
+button {
+  padding: 6px 12px;
+  font-size: 16px;
+  cursor: pointer;
 }
 
 table {
   margin: 0 auto;
   border-collapse: collapse;
   width: 90%;
-  max-width: 600px;
+  max-width: 800px;
 }
 
 th, td {
   border: 1px solid #444;
   padding: 8px;
+  text-align: center;
 }
 
 th {
-  background: #222;
+  background-color: #222;
 }
 
-tbody tr:nth-child(odd) {
-  background: #1a1a1a;
+tbody tr:nth-child(even) {
+  background-color: #1a1a1a;
 }
