@@ -406,11 +406,11 @@ async def on_message(message):
                 await message.channel.send("\n".join(outputs))
             else:
                 if header is None:
-                    header = "[不明]"
+                    header = "[]"
                 await message.channel.send(f"{header}\n該当するスケジュールは見つかりませんでした")
         except Exception as e:
             print(f"Error in {PREFIX}sale command: {e}")
-            await message.channel.send("エラーが発生しました。管理者に連絡してください。")
+            await message.channel.send("エラーが発生しました。")
 
     if message.content.lower().startswith(f"{PREFIX}gt"):
         try:
