@@ -426,7 +426,7 @@ async def on_message(message):
                 await message.channel.send("ガチャ情報は見つかりませんでした")
         except Exception as e:
             print(f"Error in {PREFIX}gt command: {e}")
-            await message.channel.send("エラーが発生しました。管理者に連絡してください。")
+            await message.channel.send("エラーが発生しました。")
 
 # 実行
 keep_alive()
