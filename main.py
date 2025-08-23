@@ -419,7 +419,7 @@ async def on_message(message):
         if outputs:
             await message.channel.send("\n".join(outputs))
         else:
-            await message.channel.send(f"'{query}' は見つかりませんでした")
+            await message.channel.send(f"[{eid} {name}]"\n'{query}' は見つかりませんでした")
 
     # !gt コマンド
     if message.content.startswith(f"{PREFIX}gt"):
