@@ -376,7 +376,7 @@ async def on_message(message):
 
             header = None
             if sale_id is not None:
-                stage_name = stage_map.get(sale_id, "不明なステージ")
+                stage_name = stage_map.get(sale_id, "")
                 header = f"[{sale_id} {stage_name}]"
             elif sale_name is not None:
                 header = f"[??? {sale_name}]"
