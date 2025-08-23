@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Shibanban",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
@@ -14,3 +15,4 @@
     "node-fetch": "^3.4.0"
   }
 }
+
