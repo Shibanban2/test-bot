@@ -329,8 +329,8 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
         print(f"Invalid row format: {row}, error: {e}")
         return output_lines
 
-    # 今日以降のスケジュールのみ
-    if start_date < today_str:
+    # 修正: 終了日が今日以降、かつ 20300101 でない場合に表示
+    if end_date < today_str or end_date == "20300101":
         return output_lines
 
     base_cols = {
