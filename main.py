@@ -301,62 +301,53 @@ def build_monthly_note(row_tokens):
 # =========================
 # Discord Bot
 # =========================
+PREFIX = "s."  # モジュールのトップレベルで定義
+
 @client.event
 async def on_ready():
-    print("ログインしました")
+    print(f"ログインしました: {client.user.name}")
 
-# ... 省略（fetch_tsv, load_stage_map, extract_event_ids, parse_schedule, _fmt_time_str, _fmt_date_str などはそのまま）
-
-# -----------------------------
-# gt コマンド追加
-# -----------------------------
-async def load_gatya_maps():
-    # gatya.tsv
-    gatya_url = "https://shibanban2.github.io/bc-event/token/gatya.tsv"
-    gatya_rows = await fetch_tsv(gatya_url)
-
-    # gatyaName.tsv
-    name_url = "https://shibanban2.github.io/bc-event/token/gatyaName.tsv"
-    name_rows = await fetch_tsv(name_url)
-    name_map = {int(r[0]): r[1] for r in name_rows if r and r[0].isdigit()}
-
-    # gatyaitem.tsv
-    item_url = "https://shibanban2.github.io/bc-event/token/gatyaitem.tsv"
-    item_rows = await fetch_tsv(item_url)
-    item_map = {int(r[2]): r[3] for r in item_rows if r and r[2].isdigit()}
-
-    return gatya_rows, name_map, item_map
-
-def format_gatya_time(sd, st, ed, et):
-    return f"{_fmt_date_str(sd)}({_fmt_time_str(st)})〜{_fmt_date_str(ed)}({_fmt_time_str(et)})"
-
-def parse_gatya_row(row, name_map, item_map):
-    """1行のgatyaデータを複数j列対応で出力文字列リストに変換"""
-    output_lines = []
+async def fetch_tsv(url):
     try:
-        start_date, start_time = row[0], row[1]
-        end_date, end_time = row[2], row[3]
-    except IndexError:
-        return output_lines
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                print(f"Fetching {url}: Status {resp.status}")  # デバッグログ
+                if resp.status != 200:
+                    print(f"Failed to fetch {url}: Status {resp.status}")
+                    return []
+                text = await resp.text()
+                print(f"TSV content: {text[:100]}...")  # 最初の100文字を表示
+                lines = text.splitlines()
+                rows = []
+                for line in lines:
+                    row = line.split("\t")
+                    if "".join(row).strip() == "":
+                        continue
+                    while len(row) > 0 and row[-1] == "":
+                        row.pop()
+                    if len(row) == 0 or (row[-1] not in ("0", "1")):
+                        row = row + ["0"]
+                    rows.append(row)
+                print(f"Parsed {len(rows)} rows from {url}")  # デバッグログ
+                return rows
+    except Exception as e:
+        print(f"Error fetching {url}: {e}")
+        return []
 
-    date_range = format_gatya_time(start_date, start_time, end_date, end_time)
-
-    # j列は1〜7（例：10列ずつ分かれている場合はGAS baseColsに合わせる）
-    base_cols = [10, 25, 40, 55, 70, 85, 100]  # j=1..7のID列
-    for col_id in base_cols:
-        if col_id >= len(row):
-            continue
-        try:
-            gid = int(row[col_id])
-        except (ValueError, TypeError):
-            continue
-        if gid <= 0:
-            continue
-        gname = name_map.get(gid, f"error[{gid}]")
-        extra = item_map.get(gid, "")
-        line = f"{date_range}\n {gid} {gname}{(' '+extra) if extra else ''}"
-        output_lines.append(line)
-    return output_lines
+async def load_stage_map():
+    url = "https://shibanban2.github.io/bc-event/token/stage.tsv"
+    rows = await fetch_tsv(url)
+    stage_map = {}
+    for row in rows:
+        if len(row) >= 2:
+            try:
+                sid = int(row[0])
+                name = row[1]
+                stage_map[sid] = name
+            except ValueError:
+                continue
+    print(f"Loaded stage_map: {stage_map}")  # デバッグログ
+    return stage_map
     
 @client.event
 async def on_message(message):
