@@ -415,21 +415,18 @@ if outputs:
   await message.channel.send("\n".join(outputs))
 else:
    await message.channel.send(f"'{query}' は見つかりませんでした")
-
-
-
-    
+   
  # 新規 gt コマンド
-    if message.content.startswith(f"{PREFIX}gt"):
-        gatya_rows, name_map, item_map = await load_gatya_maps()
+if message.content.startswith(f"{PREFIX}gt"):
+   gatya_rows, name_map, item_map = await load_gatya_maps()
         outputs = []
-        for row in gatya_rows[1:]:
-            lines = parse_gatya_row(row, name_map, item_map)
-            outputs.extend(lines)
-        if outputs:
-            await message.channel.send("\n".join(outputs))
-        else:
-            await message.channel.send("ガチャ情報は見つかりませんでした")
+    for row in gatya_rows[1:]:
+        lines = parse_gatya_row(row, name_map, item_map)
+        outputs.extend(lines)
+     if outputs:
+        await message.channel.send("\n".join(outputs))
+    else:
+        await message.channel.send("ガチャ情報は見つかりませんでした")
 
 # 実行
 keep_alive()
