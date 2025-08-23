@@ -307,6 +307,57 @@ async def on_ready():
 
 # ... 省略（fetch_tsv, load_stage_map, extract_event_ids, parse_schedule, _fmt_time_str, _fmt_date_str などはそのまま）
 
+# -----------------------------
+# gt コマンド追加
+# -----------------------------
+async def load_gatya_maps():
+    # gatya.tsv
+    gatya_url = "https://shibanban2.github.io/bc-event/token/gatya.tsv"
+    gatya_rows = await fetch_tsv(gatya_url)
+
+    # gatyaName.tsv
+    name_url = "https://shibanban2.github.io/bc-event/token/gatyaName.tsv"
+    name_rows = await fetch_tsv(name_url)
+    name_map = {int(r[0]): r[1] for r in name_rows if r and r[0].isdigit()}
+
+    # gatyaitem.tsv
+    item_url = "https://shibanban2.github.io/bc-event/token/gatyaitem.tsv"
+    item_rows = await fetch_tsv(item_url)
+    item_map = {int(r[2]): r[3] for r in item_rows if r and r[2].isdigit()}
+
+    return gatya_rows, name_map, item_map
+
+def format_gatya_time(sd, st, ed, et):
+    return f"{_fmt_date_str(sd)}({_fmt_time_str(st)})〜{_fmt_date_str(ed)}({_fmt_time_str(et)})"
+
+def parse_gatya_row(row, name_map, item_map):
+    """1行のgatyaデータを複数j列対応で出力文字列リストに変換"""
+    output_lines = []
+    try:
+        start_date, start_time = row[0], row[1]
+        end_date, end_time = row[2], row[3]
+    except IndexError:
+        return output_lines
+
+    date_range = format_gatya_time(start_date, start_time, end_date, end_time)
+
+    # j列は1〜7（例：10列ずつ分かれている場合はGAS baseColsに合わせる）
+    base_cols = [10, 25, 40, 55, 70, 85, 100]  # j=1..7のID列
+    for col_id in base_cols:
+        if col_id >= len(row):
+            continue
+        try:
+            gid = int(row[col_id])
+        except (ValueError, TypeError):
+            continue
+        if gid <= 0:
+            continue
+        gname = name_map.get(gid, f"error[{gid}]")
+        extra = item_map.get(gid, "")
+        line = f"{date_range}\n {gid} {gname}{(' '+extra) if extra else ''}"
+        output_lines.append(line)
+    return output_lines
+    
 @client.event
 async def on_message(message):
     if message.author == client.user:
@@ -368,6 +419,17 @@ async def on_message(message):
         else:
             await message.channel.send(f"'{query}' は見つかりませんでした")
 
+ # 新規 gt コマンド
+    if content.startswith("gt"):
+        gatya_rows, name_map, item_map = await load_gatya_maps()
+        outputs = []
+        for row in gatya_rows[1:]:
+            lines = parse_gatya_row(row, name_map, item_map)
+            outputs.extend(lines)
+        if outputs:
+            await message.channel.send("\n".join(outputs))
+        else:
+            await message.channel.send("ガチャ情報は見つかりませんでした")
 
 # 実行
 keep_alive()
