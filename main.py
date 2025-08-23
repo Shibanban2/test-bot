@@ -40,7 +40,7 @@ def _version_line(row_tokens):
     maxv = row_tokens[5] if len(row_tokens) > 5 else ""
     return f"v:{minv}-{maxv}"
 
-# GAS 準拠のフォーマット関数（修正）
+# GAS 準拠のフォーマット関数
 def format_date(d):
     if str(d) == "20300101":
         return "#永続"
@@ -49,13 +49,26 @@ def format_date(d):
 def format_time(t):
     try:
         t = int(t)
+        if t == 0 or t == 1100:
+            return ""
         hour = str(t // 100).zfill(2)
         min = str(t % 100).zfill(2)
         return f"{hour}:{min}"
     except (ValueError, TypeError):
-        return "00:00"
+        return ""
+
+def format_ver(num):
+    try:
+        num = int(num)
+        major = num // 10000
+        minor = (num % 10000) // 100
+        patch = num % 100
+        return f"{major}.{minor}.{patch}"
+    except (ValueError, TypeError):
+        return ""
 
 def get_day_of_week(date_str):
+    """YYYYMMDD 形式の日付から曜日（月～日）を返す"""
     try:
         date = datetime.strptime(str(date_str), "%Y%m%d")
         days = ["月", "火", "水", "木", "金", "土", "日"]
@@ -307,6 +320,8 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
         start_time = row[1]
         end_date = str(row[2])
         end_time = row[3]
+        min_ver = row[4] if len(row) > 4 else 0
+        max_ver = row[5] if len(row) > 5 else 999999
         type_code = int(row[8]) if len(row) > 8 and row[8].isdigit() else 0
         j = int(row[9]) if len(row) > 9 and row[9].isdigit() else 0
         print(f"Processing row: {row[:10]}")
@@ -320,8 +335,7 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
 
     base_cols = {
         1: {"id": 10, "extra": 13, "normal": 14, "rare": 16, "super": 18, "ultra": 20, "confirm": 21, "legend": 22, "title": 24},
-        2: {"id": 25, "extra": 28, "normal": 29, "rare": 31, "super": 33, "ultra": 3
-5, "confirm": 36, "legend": 37, "title": 39},
+        2: {"id": 25, "extra": 28, "normal": 29, "rare": 31, "super": 33, "ultra": 35, "confirm": 36, "legend": 37, "title": 39},
         3: {"id": 40, "extra": 43, "normal": 44, "rare": 46, "super": 48, "ultra": 50, "confirm": 51, "legend": 52, "title": 54},
         4: {"id": 55, "extra": 58, "normal": 59, "rare": 61, "super": 63, "ultra": 65, "confirm": 66, "legend": 67, "title": 69},
         5: {"id": 70, "extra": 73, "normal": 74, "rare": 76, "super": 78, "ultra": 80, "confirm": 81, "legend": 82, "title": 84},
@@ -341,8 +355,13 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
         if id <= 0:
             return output_lines
         gname = name_map.get(id, f"error[{id}]")
-        date_range = f"{format_date(start_date)}({get_day_of_week(start_date)}) {format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}) {format_time(end_time)}"
-        col_k = f"{date_range}\n　{id} {gname}"
+        ver_text = ""
+        if min_ver and min_ver != 0:
+            ver_text += f"[要Ver.{format_ver(min_ver)}]"
+        if max_ver and max_ver != 999999:
+            ver_text += f"[Ver.{format_ver(max_ver)}まで]"
+        date_range = f"{format_date(start_date)}({get_day_of_week(start_date)}){format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}){format_time(end_time)}"
+        col_k = f"{date_range} {id} {gname}{ver_text}"
         if extra:
             col_k += f" {extra}"
         output_lines.append(col_k)
@@ -367,8 +386,13 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
         return output_lines
 
     gname = name_map.get(id, f"error[{id}]")
-    date_range = f"{format_date(start_date)}({get_day_of_week(start_date)}) {format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}) {format_time(end_time)}"
-    col_k = f"{date_range}\n　{id} {gname}{confirm}"
+    ver_text = ""
+    if min_ver and min_ver != 0:
+        ver_text += f"[要Ver.{format_ver(min_ver)}]"
+    if max_ver and max_ver != 999999:
+        ver_text += f"[Ver.{format_ver(max_ver)}まで]"
+    date_range = f"{format_date(start_date)}({get_day_of_week(start_date)}){format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}){format_time(end_time)}"
+    col_k = f"{date_range} {id} {gname}{confirm}{ver_text}"
     if extra:
         col_k += f" {extra}"
     output_lines.append(col_k)
