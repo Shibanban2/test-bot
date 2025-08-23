@@ -414,19 +414,16 @@ async def on_message(message):
                 if note:
                     outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
                 else:
-                    outputs.append(f"{period_line}\n{ver_line}")
-　                if outputs:
-    await message.channel.send("\n".join(outputs))
-else:
-    # ID が分かっている場合はそれを使う
-    if sale_id is not None:
-        header = f"[{sale_id} 不明なステージ]"
-    # 名前検索の場合は名前を表示
-    elif sale_name is not None:
-        header = f"[??? {sale_name}]"
-    else:
-        header = "[不明]"
-    await message.channel.send(header + "\n該当するスケジュールは見つかりませんでした")
+        if outputs:
+            await message.channel.send("\n".join(outputs))
+        else:
+            if sale_id is not None:
+                header = f"[{sale_id} ]"
+            elif sale_name is not None:
+                header = f"[??? {sale_name}]"
+            else:
+                header = "[不明]"
+            await message.channel.send(header + "\n該当するスケジュールは見つかりませんでした")
 
 
     # !gt コマンド
