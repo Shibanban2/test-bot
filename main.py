@@ -305,13 +305,15 @@ def build_monthly_note(row_tokens):
 async def on_ready():
     print("ログインしました")
 
+# ... 省略（fetch_tsv, load_stage_map, extract_event_ids, parse_schedule, _fmt_time_str, _fmt_date_str などはそのまま）
+
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
     if message.content.lower() == "ping":
-        await message.channel.send("Pong.")
+        await message.channel.send("Pong.2")
 
     if message.content.startswith("sale "):
         _, sale_id_str = message.content.split(" ", 1)
@@ -326,19 +328,24 @@ async def on_message(message):
         stage_map = await load_stage_map()
 
         outputs = []
+        seen_headers = set()  # 追加: 重複除外用
         for row in rows:
             ids = extract_event_ids(row)
             if sale_id in ids:
-                # 指定 ID のみ単体で出力（同じ行に他IDがあっても無視）
                 name = stage_map.get(sale_id, "")
-                header = f"[{sale_id}　{name}]" if name else f"[{sale_id}]"
+                header = f"[{sale_id} {name}]" if name else f"[{sale_id}]"
+
+                # 重複確認
+                if header in seen_headers:
+                    continue
+                seen_headers.add(header)
+
                 period_line = _fmt_date_range_line(row)
                 ver_line = _version_line(row)
                 note = build_monthly_note(row)
 
-                # 出力を構成（コードフェンスは付けない）
                 if note:
-                    outputs.append(f"{header}\n{period_line}\n{ver_line}\n{note}")
+                    outputs.append(f"{header}\n{period_line}\n{ver_line}\n```{note}```")
                 else:
                     outputs.append(f"{header}\n{period_line}\n{ver_line}")
 
@@ -346,6 +353,7 @@ async def on_message(message):
             await message.channel.send("\n\n".join(outputs))
         else:
             await message.channel.send(f"ID {sale_id} は見つかりませんでした")
+
 
 # 実行
 keep_alive()
