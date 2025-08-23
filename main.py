@@ -366,8 +366,13 @@ async def on_message(message):
     if message.content.lower() == "ping.":
         await message.channel.send("Pong.")
 
+    PREFIX = "s."  # PREFIX はここで定義（関数内で毎回定義するのは非効率ですが、元のコードを尊重）
+    
+    # !sale コマンド
     if message.content.startswith(f"{PREFIX}sale "):
         query = message.content.split(" ", 1)[1].strip()
+
+        # IDかステージ名かを判定
         sale_id = None
         sale_name = None
         try:
@@ -382,22 +387,21 @@ async def on_message(message):
         outputs = []
         found_ids = set()
 
-        # sale_id が指定された場合、stage_map から名前を取得
-        header = None
-        if sale_id is not None:
-            stage_name = stage_map.get(sale_id, "不明なステージ")
-            header = f"[{sale_id} {stage_name}]"
-        elif sale_name is not None:
-            header = f"[??? {sale_name}]"
-
         for row in rows:
             ids = extract_event_ids(row)
+
             for eid in ids:
                 name = stage_map.get(eid, "")
+
+                # --- ID指定のとき ---
                 if sale_id is not None and eid != sale_id:
                     continue
+
+                # --- 名前指定のとき（部分一致） ---
                 if sale_name is not None and sale_name not in name:
                     continue
+
+                # タイトルは必ず出す
                 header = f"[{eid} {name}]" if name else f"[{eid}]"
                 if eid not in found_ids:
                     outputs.append(header)
@@ -406,17 +410,23 @@ async def on_message(message):
                 note = build_monthly_note(row)
                 period_line = _fmt_date_range_line(row)
                 ver_line = _version_line(row)
+                # その後、note があれば追加
                 if note:
                     outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
                 else:
                     outputs.append(f"{period_line}\n{ver_line}")
-
-        if outputs:
-            await message.channel.send("\n".join(outputs))
-        else:
-            if header is None:
-                header = "[不明]"
-            await message.channel.send(f"{header}\n該当するスケジュールは見つかりませんでした")
+　                if outputs:
+    await message.channel.send("\n".join(outputs))
+else:
+    # ID が分かっている場合はそれを使う
+    if sale_id is not None:
+        header = f"[{sale_id} 不明なステージ]"
+    # 名前検索の場合は名前を表示
+    elif sale_name is not None:
+        header = f"[??? {sale_name}]"
+    else:
+        header = "[不明]"
+    await message.channel.send(header + "\n該当するスケジュールは見つかりませんでした")
 
 
     # !gt コマンド
