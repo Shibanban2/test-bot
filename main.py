@@ -11,15 +11,63 @@ client = discord.Client(intents=intents)
 
 load_dotenv(verbose=True)
 
-# ===== TSV 読み込み処理 =====
+# =========================
+# 共通：数字フォーマット系
+# =========================
+def _fmt_time_str(t_str: str) -> str:
+    """ '0' -> '00:00', '800' -> '08:00', '1100' -> '11:00' """
+    try:
+        n = int(t_str)
+    except (ValueError, TypeError):
+        n = 0
+    s = str(n).zfill(4)
+    return f"{s[:2]}:{s[2:]}"
+
+def _fmt_date_str(d_str: str) -> str:
+    """ '20160101' -> '2016/01/01'（桁不足でもゼロ詰めで対処）"""
+    s = str(d_str).zfill(8)
+    return f"{s[:4]}/{s[4:6]}/{s[6:8]}"
+
+def _fmt_date_range_line(row_tokens):
+    """ sale.tsv 1行の [0..3] を使って 'YYYY/MM/DD(HH:MM)〜YYYY/MM/DD(HH:MM)' を作る """
+    if len(row_tokens) < 4:
+        return "????/??/??(00:00)〜????/??/??(00:00)"
+    sd, st, ed, et = row_tokens[0], row_tokens[1], row_tokens[2], row_tokens[3]
+    return f"{_fmt_date_str(sd)}({_fmt_time_str(st)})〜{_fmt_date_str(ed)}({_fmt_time_str(et)})"
+
+def _version_line(row_tokens):
+    """ sale.tsv 1行の [4..5] を使って 'v:min-max' を返す（常に表示）"""
+    minv = row_tokens[4] if len(row_tokens) > 4 else ""
+    maxv = row_tokens[5] if len(row_tokens) > 5 else ""
+    return f"v:{minv}-{maxv}"
+
+# =================================
+# TSV 読み込み：末尾に必要なら 0 を付ける
+# =================================
 async def fetch_tsv(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             text = await resp.text()
-            rows = [line.split("\t") for line in text.strip().split("\n")]
-            return [row for row in rows if "".join(row).strip() != ""]
+            lines = text.splitlines()
+            rows = []
+            for line in lines:
+                # タブ分割
+                row = line.split("\t")
+                # 全部空欄の行はスキップ
+                if "".join(row).strip() == "":
+                    continue
+                # 右側の空欄セルを削除（GAS での見え方に合わせる）
+                while len(row) > 0 and row[-1] == "":
+                    row.pop()
+                # 末尾が "0" または "1" でなければ "0" を付与（GAS のイベント終端マーカー相当）
+                if len(row) == 0 or (row[-1] not in ("0", "1")):
+                    row = row + ["0"]
+                rows.append(row)
+            return rows
 
-# ===== stage.tsv を dict 化 =====
+# =========================
+# stage.tsv を辞書化
+# =========================
 async def load_stage_map():
     url = "https://shibanban2.github.io/bc-event/token/stage.tsv"
     rows = await fetch_tsv(url)
@@ -27,141 +75,232 @@ async def load_stage_map():
     for row in rows:
         if len(row) >= 2:
             try:
-                stage_id = int(row[0])
-                stage_name = row[1]
-                stage_map[stage_id] = stage_name
+                sid = int(row[0])
+                name = row[1]
+                stage_map[sid] = name
             except ValueError:
                 continue
     return stage_map
 
-# ===== GAS仕様 extractEventIds (Python版) =====
-def extract_event_ids(row):
-    try:
-        nums = [int(v) for v in row if v.strip() != ""]
-    except ValueError:
-        nums = []
+# =========================
+# GAS準拠：ID逆走査抽出
+# =========================
+def extract_event_ids(row_tokens):
+    """
+    GAS の extractEventIds と同様の ID 抽出（末尾から2番目から逆走査、非IDに当たったら break）
+    有効ID: 50~60, 100~199, 1000以上
+    """
+    nums = []
+    for v in row_tokens:
+        try:
+            nums.append(int(v))
+        except (ValueError, TypeError):
+            continue
 
-    # D列に出す注記
-    start = -1
-    for i in range(len(nums) - 1):
-        if nums[i] == 999999 and nums[i + 1] == 0:
-            start = i
-
-    monthly_note = ""
-    if start != -1:
-        segment = nums[start:]
-        monthly_note = parse_schedule(segment)
-
-    # 末尾から逆走査
     ids = []
+    # 末尾は終端 0（or 1）なので、その1つ手前から逆順で見る
     for i in range(len(nums) - 2, -1, -1):
         val = nums[i]
         is_valid = (50 <= val <= 60) or (100 <= val <= 199) or (val >= 1000)
         if is_valid:
-            ids.insert(0, val)
+            ids.insert(0, val)  # unshift
         else:
             break
+    return ids
 
-    return {"ids": ids, "monthlyNote": monthly_note}
+# =========================
+# GAS準拠：D列（スケジュール）検出
+# =========================
+def _find_last_schedule_segment(nums):
+    """
+    行全体（数値配列）から、最後に出現する (999999, 0) の位置を探し、
+    そこから右端までの数値配列を返す。無ければ None を返す。
+    """
+    start = -1
+    for i in range(len(nums) - 1):
+        if nums[i] == 999999 and nums[i + 1] == 0:
+            start = i
+    if start == -1:
+        return None
+    return nums[start:]
 
-# ===== GAS仕様 parseSchedule (Python版) =====
-def parse_schedule(row):
-    if len(row) < 3 or row[0] != 999999 or row[1] != 0:
+def parse_schedule(segment_nums):
+    """
+    GAS の parseSchedule を ほぼそのまま Python に移植。
+    segment_nums: 999999,0 から始まる数値配列
+    返り値: D列に出す文面（複数行可）
+    """
+    if not segment_nums or len(segment_nums) < 3:
+        return ""
+    if segment_nums[0] != 999999 or segment_nums[1] != 0:
         return ""
 
-    DAYS = [("日", 1), ("月", 2), ("火", 4), ("水", 8),
-            ("木", 16), ("金", 32), ("土", 64)]
+    DAYS = [("日", 1), ("月", 2), ("火", 4), ("水", 8), ("木", 16), ("金", 32), ("土", 64)]
 
     def fmt_time(t):
-        n = int(t)
-        return f"{n//100:02d}:{n%100:02d}"
+        try:
+            n = int(t)
+        except (ValueError, TypeError):
+            n = 0
+        s = str(n).zfill(4)
+        return f"{s[:2]}:{s[2:]}"
 
     def fmt_mmdd(d):
-        s = str(d).zfill(4)
-        return f"{s[:2]}/{s[2:]}"
+        s = str(int(d)).zfill(4)
+        return f"{s[:2]}/{s[2:4]}"
 
     def decode_days(bit):
-        b = int(bit)
-        return "・".join(name for name, val in DAYS if (b & val) == val)
+        try:
+            b = int(bit)
+        except (ValueError, TypeError):
+            b = 0
+        arr = []
+        for name, val in DAYS:
+            if (b & val) == val:
+                arr.append(name)
+        return "・".join(arr)
 
-    out = []
+    row = segment_nums
+    out_lines = []
 
     # --- 1) 毎月○日 ---
-    if row[2] == 1 and row[3] == 0 and row[4] > 0:
+    if len(row) >= 5 and row[2] == 1 and row[3] == 0 and row[4] > 0:
         n = row[4]
-        days = row[5:5+n]
+        days = row[5:5 + n]
         if len(days) == n:
-            out.append(f"{','.join(map(str, days))}日")
-        return "\n".join(out)
+            out_lines.append(f"{','.join(str(d) for d in days)}日")
+        return "\n".join(out_lines)
 
     # --- 2) 時間のみ ---
-    if row[2] == 1 and row[3] == 0 and row[4] == 0 and row[5] == 0 and row[6] >= 1:
+    if len(row) >= 7 and row[2] == 1 and row[3] == 0 and row[4] == 0 and row[5] == 0 and row[6] >= 1:
         n = row[6]
-        times = [f"{fmt_time(row[7+i*2])}～{fmt_time(row[8+i*2])}" for i in range(n)]
+        times = []
+        for i in range(n):
+            s = row[7 + i * 2]
+            e = row[8 + i * 2]
+            times.append(f"{fmt_time(s)}～{fmt_time(e)}")
         if times:
-            out.append(" & ".join(times))
-        return "\n".join(out)
+            out_lines.append(" ".join([" & ".join(times)]))
+        return "\n".join(out_lines)
 
     # --- 3) 複数日付範囲 ---
-    if row[2] >= 1 and row[3] == 1:
+    if len(row) >= 4 and row[2] >= 1 and row[3] == 1:
         period_count = row[2]
         p = 4
         for _ in range(period_count):
-            if row[p] == 1:
-                p += 1
-            s_date, s_time, e_date, e_time = row[p:p+4]
+            if p < len(row) and row[p] == 1:
+                p += 1  # 先頭1を許容
+
+            if p + 3 >= len(row):
+                break
+            sDate, sTime = row[p], row[p + 1]
+            eDate, eTime = row[p + 2], row[p + 3]
             p += 4
-            if row[p] == 0 and row[p+1] == 0 and (row[p+2] == 0 or row[p+2] == 3):
-                time_count = row[p+2]
+
+            # 区切り: 0,0,0 or 0,0,3
+            if p + 2 < len(row) and row[p] == 0 and row[p + 1] == 0 and (row[p + 2] in (0, 3)):
+                time_count = row[p + 2]
                 p += 3
-                times = [f"{fmt_time(row[p+i*2])}～{fmt_time(row[p+i*2+1])}" for i in range(time_count)]
-                p += time_count * 2
-                period_str = f"{fmt_mmdd(s_date)}({fmt_time(s_time)})～{fmt_mmdd(e_date)}({fmt_time(e_time)})"
-                out.append(f"{period_str} {' & '.join(times)}" if times else period_str)
+
+                times = []
+                for _i in range(time_count):
+                    if p + 1 >= len(row):
+                        break
+                    s, e = row[p], row[p + 1]
+                    p += 2
+                    times.append(f"{fmt_time(s)}～{fmt_time(e)}")
+
+                period_str = f"{fmt_mmdd(sDate)}({fmt_time(sTime)})～{fmt_mmdd(eDate)}({fmt_time(eTime)})"
+                if times:
+                    out_lines.append(f"{period_str} { ' & '.join(times) }")
+                else:
+                    out_lines.append(period_str)
             else:
+                # 不正ブロックは 999999 までスキップ
                 while p < len(row) and row[p] != 999999:
                     p += 1
-        return "\n".join(out)
+        return "\n".join(out_lines)
 
     # --- 4) 曜日指定 ---
-    if row[2] >= 1 and row[3] == 0 and row[4] == 0:
+    if len(row) >= 5 and row[2] >= 1 and row[3] == 0 and row[4] == 0:
         block_count = row[2]
         p = 5
         for _ in range(block_count):
+            if p >= len(row):
+                break
             day_id = row[p]; p += 1
+            if p >= len(row):
+                break
             time_count = row[p]; p += 1
-            times = [f"{fmt_time(row[p+i*2])}～{fmt_time(row[p+i*2+1])}" for i in range(time_count)]
-            p += time_count * 2
-            if row[p] == 0 and row[p+1] == 0:
+
+            times = []
+            for _j in range(time_count):
+                if p + 1 >= len(row):
+                    break
+                s, e = row[p], row[p + 1]
                 p += 2
+                times.append(f"{fmt_time(s)}～{fmt_time(e)}")
+
+            # 区切り 0,0 を許容
+            if p + 1 < len(row) and row[p] == 0 and row[p + 1] == 0:
+                p += 2
+
             label = decode_days(day_id)
             label_out = f"{label}曜日" if "・" not in label else label
+
             if time_count > 0:
-                out.append(f"{label_out} {' & '.join(times)}")
+                out_lines.append(f"{label_out} {' & '.join(times)}")
             else:
-                out.append(f"毎週{label_out}")
-        return "\n".join(out)
+                out_lines.append(f"毎週{label_out}")
+        return "\n".join(out_lines)
 
     # --- 5) 日付時間指定型 ---
-    if row[2] >= 1 and row[3] == 0 and row[4] > 0:
+    if len(row) >= 5 and row[2] >= 1 and row[3] == 0 and row[4] > 0:
         block_count = row[2]
         p = 4
         for _ in range(block_count):
+            if p >= len(row):
+                break
             date_count = row[p]; p += 1
-            dates = row[p:p+date_count]; p += date_count
-            if row[p] == 0:
-                p += 1
+            dates = row[p:p + date_count]; p += date_count
+            if p < len(row) and row[p] == 0:
+                p += 1  # 区切り
+
+            if p >= len(row):
+                break
             time_block_count = row[p]; p += 1
-            times = [f"{fmt_time(row[p+i*2])}～{fmt_time(row[p+i*2+1])}" for i in range(time_block_count)]
-            p += time_block_count * 2
-            if row[p] == 0:
-                p += 1
-            out.append(f"{','.join(map(str, dates))}日 {' & '.join(times)}")
-        return "\n".join(out)
+            times = []
+            for _t in range(time_block_count):
+                if p + 1 >= len(row):
+                    break
+                s, e = row[p], row[p + 1]
+                p += 2
+                times.append(f"{fmt_time(s)}～{fmt_time(e)}")
+
+            if p < len(row) and row[p] == 0:
+                p += 1  # 区切り
+
+            out_lines.append(f"{','.join(str(d) for d in dates)}日 {' & '.join(times)}")
+        return "\n".join(out_lines)
 
     return ""
 
-# ===== Discord Bot =====
+def build_monthly_note(row_tokens):
+    """ 行トークンから数値配列を作り、最後の 999999,0 セグメントを parse_schedule に渡して D列相当を返す """
+    nums = []
+    for v in row_tokens:
+        try:
+            nums.append(int(v))
+        except (ValueError, TypeError):
+            continue
+    seg = _find_last_schedule_segment(nums)
+    if not seg:
+        return ""
+    return parse_schedule(seg)
+
+# =========================
+# Discord Bot
+# =========================
 @client.event
 async def on_ready():
     print("ログインしました")
@@ -175,9 +314,9 @@ async def on_message(message):
         await message.channel.send("Pong.")
 
     if message.content.startswith("sale "):
-        _, sale_id = message.content.split(" ", 1)
+        _, sale_id_str = message.content.split(" ", 1)
         try:
-            sale_id = int(sale_id)
+            sale_id = int(sale_id_str)
         except ValueError:
             await message.channel.send("IDは数値で入力してください")
             return
@@ -186,22 +325,29 @@ async def on_message(message):
         rows = await fetch_tsv(sale_url)
         stage_map = await load_stage_map()
 
-        found_rows = []
+        outputs = []
         for row in rows:
-            ev = extract_event_ids(row)
-            if sale_id in ev["ids"]:
+            ids = extract_event_ids(row)
+            if sale_id in ids:
+                # 指定 ID のみ単体で出力（同じ行に他IDがあっても無視）
                 name = stage_map.get(sale_id, "")
-                id_with_name = f"{sale_id}　{name}" if name else str(sale_id)
-                # GAS同様、monthlyNote 付き
-                found_rows.append(f"[{id_with_name}]\n{ev['monthlyNote']}")
+                header = f"[{sale_id}　{name}]" if name else f"[{sale_id}]"
+                period_line = _fmt_date_range_line(row)
+                ver_line = _version_line(row)
+                note = build_monthly_note(row)
 
-        if found_rows:
-            reply = "\n\n".join(found_rows)
-            await message.channel.send(f"```\n{reply}\n```")
+                # 出力を構成（コードフェンスは付けない）
+                if note:
+                    outputs.append(f"{header}\n{period_line}\n{ver_line}\n{note}")
+                else:
+                    outputs.append(f"{header}\n{period_line}\n{ver_line}")
+
+        if outputs:
+            await message.channel.send("\n\n".join(outputs))
         else:
             await message.channel.send(f"ID {sale_id} は見つかりませんでした")
 
-# ===== 実行 =====
+# 実行
 keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
 if TOKEN:
