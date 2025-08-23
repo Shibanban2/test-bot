@@ -386,25 +386,17 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
     output_lines.append(col_k)
     return output_lines
 
-def lookup_extra(code, item_map):
-    try:
-        return item_map.get(int(code), "")
-    except (ValueError, TypeError):
-        return ""
-
-# =========================
-# Discord Bot
-# =========================
-@client.event
-async def on_ready():
-    print(f"ログインしました: {client.user.name}")
-
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
     if message.content.lower() == "s.ping":
         await message.channel.send("Pong.")
+    if message.content.lower() == f"{PREFIX}help":
+        await message.channel.send(
+            "s.sale [ID or 名前]: ステージの販売スケジュールを表示。例: s.sale 50 や s.sale ガチャ\n"
+            "s.gt: 今日以降のガチャスケジュールを表示（終了日基準、永続は除く）。"
+        )
     if message.content.lower().startswith(f"{PREFIX}sale "):
         try:
             query = message.content.split(" ", 1)[1].strip()
