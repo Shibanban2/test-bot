@@ -364,7 +364,7 @@ async def on_message(message):
         return
 
     if message.content.lower() == "ping":
-        await message.channel.send("Pong.4")
+        await message.channel.send("Pong.5")
 
     if message.content.startswith("sale "):
         query = message.content.split(" ", 1)[1].strip()
@@ -398,27 +398,25 @@ async def on_message(message):
                 if sale_name is not None and sale_name not in name:
                     continue
 
-                header = f"[{eid} {name}]" if name else f"[{eid}]"
-                period_line = _fmt_date_range_line(row)
-                ver_line = _version_line(row)
-                note = build_monthly_note(row)
-
-                # 同じIDが出てきた場合、タイトルは1度だけ
-                if eid not in found_ids:
-                    outputs.append(header)
-                    found_ids.add(eid)
-
-                # イベント本体を追加
-                if note:
-                    outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
-                else:
-                    outputs.append(f"{period_line}\n{ver_line}")
+              # タイトルは必ず出す
+header = f"[{eid} {name}]" if name else f"[{eid}]"
+if eid not in found_ids:
+    outputs.append(header)
+    found_ids.add(eid)
+# その後、note があれば追加
+if note:
+    outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
+else:
+    outputs.append(f"{period_line}\n{ver_line}")
 
         if outputs:
             await message.channel.send("\n".join(outputs))
         else:
             await message.channel.send(f"'{query}' は見つかりませんでした")
 
+
+
+    
  # 新規 gt コマンド
     if content.startswith("gt"):
         gatya_rows, name_map, item_map = await load_gatya_maps()
