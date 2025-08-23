@@ -464,7 +464,7 @@ async def on_message(message):
             if outputs:
                 await message.channel.send("\n".join(outputs))
             else:
-                await message.channel.send("今日以降のガチャ情報は見つかりませんでした")
+                await message.channel.send("今日以降のスケジュールは見つかりませんでした")
         except Exception as e:
             print(f"Error in {PREFIX}gt command: {e}")
             await message.channel.send("エラーが発生しました。")
