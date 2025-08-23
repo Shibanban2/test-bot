@@ -366,7 +366,7 @@ async def on_message(message):
     if message.content.lower() == "ping.":
         await message.channel.send("Pong.")
 
-    PREFIX = "!"  # PREFIX はここで定義（関数内で毎回定義するのは非効率ですが、元のコードを尊重）
+    PREFIX = "s."  # PREFIX はここで定義（関数内で毎回定義するのは非効率ですが、元のコードを尊重）
     
     # !sale コマンド
     if message.content.startswith(f"{PREFIX}sale "):
