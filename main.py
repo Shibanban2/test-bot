@@ -37,8 +37,8 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.lower() == "event":
-        await message.channel.send("イベントだよ！")
+    if message.content.lower() == "ping":
+        await message.channel.send("Pong.")
 
     if message.content.startswith("sale "):
         _, sale_id = message.content.split(" ", 1)
