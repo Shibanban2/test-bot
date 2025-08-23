@@ -363,10 +363,10 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.lower() == "ping":
-        await message.channel.send("Pong.6")
-
-    if message.content.startswith("sale "):
+    if message.content.lower() == "ping.":
+        await message.channel.send("Pong.")
+PREFIX = "!"
+if message.content.startswith(f"{PREFIX}sale "):
         query = message.content.split(" ", 1)[1].strip()
 
         # IDかステージ名かを判定
@@ -397,12 +397,15 @@ async def on_message(message):
                 # --- 名前指定のとき（部分一致） ---
                 if sale_name is not None and sale_name not in name:
                     continue
-
               # タイトルは必ず出す
 header = f"[{eid} {name}]" if name else f"[{eid}]"
 if eid not in found_ids:
     outputs.append(header)
     found_ids.add(eid)
+    
+note = build_monthly_note(row)
+period_line = _fmt_date_range_line(row)
+ver_line = _version_line(row)
 # その後、note があれば追加
 if note:
     outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
@@ -418,7 +421,7 @@ else:
 
     
  # 新規 gt コマンド
-    if content.strip().startswith("gt"):
+    if message.content.startswith(f"{PREFIX}gt"):
         gatya_rows, name_map, item_map = await load_gatya_maps()
         outputs = []
         for row in gatya_rows[1:]:
