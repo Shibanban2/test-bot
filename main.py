@@ -411,11 +411,10 @@ if note:
     outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
 else:
     outputs.append(f"{period_line}\n{ver_line}")
-
-        if outputs:
-            await message.channel.send("\n".join(outputs))
-        else:
-            await message.channel.send(f"'{query}' は見つかりませんでした")
+if outputs:
+  await message.channel.send("\n".join(outputs))
+else:
+   await message.channel.send(f"'{query}' は見つかりませんでした")
 
 
 
