@@ -2,6 +2,7 @@ import os
 import discord
 import aiohttp
 from dotenv import load_dotenv
+
 from keep_alive import keep_alive
 
 intents = discord.Intents.default()
@@ -11,58 +12,64 @@ client = discord.Client(intents=intents)
 
 load_dotenv(verbose=True)
 
-# -------------------- TSV 読み込み --------------------
+# ---------- TSV 読み込み ----------
 async def fetch_tsv(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             text = await resp.text()
             rows = [line.split("\t") for line in text.strip().split("\n")]
-            # 末尾に "0" を追加
+
+            # 各行の末尾に "0" を追加（空欄の行は無視）
             processed = []
             for row in rows:
                 if "".join(row).strip() == "":
                     continue
                 row = row + ["0"]
                 processed.append(row)
+
             return processed
 
-def load_stage_map(local_path="stage.tsv"):
-    stage_map = {}
-    with open(local_path, encoding="utf-8") as f:
-        for line in f:
-            if line.strip() == "":
-                continue
-            id_str, name = line.strip().split("\t")
-            stage_map[int(id_str)] = name
-    return stage_map
+# ---------- ステージ名辞書 ----------
+def load_stage_dict(path="stage.tsv"):
+    stage_dict = {}
+    if not os.path.exists(path):
+        return stage_dict
 
-# -------------------- 日付・時間・バージョン整形 --------------------
-def format_time(t):
-    n = int(t)
-    hh = str(n // 100).zfill(2)
-    mm = str(n % 100).zfill(2)
-    return f"{hh}:{mm}"
+    with open(path, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
 
-def format_date(date_num, time_num):
-    d = str(date_num).zfill(8)
-    t = str(time_num).zfill(4)
-    return f"{d[:4]}/{d[4:6]}/{d[6:]}({format_time(t)})"
+    # 偶数行が ID、奇数行が名前
+    for i in range(0, len(lines), 2):
+        try:
+            stage_id = int(lines[i])
+            stage_name = lines[i + 1] if i + 1 < len(lines) else ""
+            stage_dict[stage_id] = stage_name
+        except ValueError:
+            continue
+    return stage_dict
 
-def format_ver(min_ver, max_ver):
-    return f"v:{min_ver}-{max_ver}"
+stage_dict = load_stage_dict()
 
-# -------------------- ID抽出 --------------------
+# ---------- 逆順で ID 抽出 ----------
 def extract_ids(row):
     nums = []
-    for val in reversed(row):
+    for v in row:
         try:
-            n = int(val)
-            nums.insert(0, n)
+            nums.append(int(v))
         except ValueError:
-            break
-    return nums
+            continue
 
-# -------------------- Discord イベント --------------------
+    ids = []
+    for i in range(len(nums) - 2, -1, -1):
+        val = nums[i]
+        is_valid = (50 <= val <= 60) or (100 <= val <= 199) or (val >= 1000)
+        if is_valid:
+            ids.insert(0, val)  # unshift 相当
+        else:
+            break
+    return ids
+
+# ---------- Discord イベント ----------
 @client.event
 async def on_ready():
     print("ログインしました")
@@ -77,31 +84,31 @@ async def on_message(message):
 
     if message.content.startswith("sale "):
         _, sale_id = message.content.split(" ", 1)
-        sale_url = "https://shibanban2.github.io/bc-event/token/sale.tsv"
+        url = "https://shibanban2.github.io/bc-event/token/sale.tsv"
+        rows = await fetch_tsv(url)
 
-        rows = await fetch_tsv(sale_url)
-        stage_map = load_stage_map("stage.tsv")  # ← ローカルの stage.tsv を使う
-
-        found = []
+        found_rows = []
         for row in rows:
-            ids = extract_ids(row)
-            if int(sale_id) in ids:
-                start_date = int(row[0])
-                start_time = int(row[1])
-                end_date = int(row[2])
-                end_time = int(row[3])
-                title = stage_map.get(int(sale_id), "")
-                ver_str = format_ver(row[4], row[5])
-                note = row[-1]
-                text = f"[{sale_id} {title}]\n{format_date(start_date, start_time)}〜{format_date(end_date, end_time)}\n{ver_str}\n{note}"
-                found.append(text)
+            if sale_id in row:
+                ids = extract_ids(row)
+                # ID → 名前に変換
+                names = [stage_dict.get(i, "") for i in ids]
+                # 出力整形
+                found_rows.append(
+                    f"[{', '.join(str(i) for i in ids)} {', '.join(n for n in names if n)}]\n"
+                    f"{row[0][:4]}/{row[0][4:6]}/{row[0][6:8]}({row[1]})〜"
+                    f"{row[2][:4]}/{row[2][4:6]}/{row[2][6:8]}({row[3]})\n"
+                    f"v:{row[4]}-{row[5]}\n"
+                    f"{row[3]}"  # D列相当
+                )
 
-        if found:
-            reply = "\n\n".join(found)
+        if found_rows:
+            reply = "\n\n".join(found_rows)
             await message.channel.send(f"```\n{reply}\n```")
         else:
             await message.channel.send(f"ID {sale_id} は見つかりませんでした")
 
+# ---------- 実行 ----------
 keep_alive()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
