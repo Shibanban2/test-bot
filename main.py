@@ -1,7 +1,6 @@
 import os
 import discord
 import aiohttp
-import asyncio
 from dotenv import load_dotenv
 
 from keep_alive import keep_alive
@@ -18,7 +17,16 @@ async def fetch_tsv(url):
         async with session.get(url) as resp:
             text = await resp.text()
             rows = [line.split("\t") for line in text.strip().split("\n")]
-            return rows
+
+            # 各行の末尾に "0" を追加（空欄の行は無視）
+            processed = []
+            for row in rows:
+                if "".join(row).strip() == "":
+                    continue
+                row = row + ["0"]
+                processed.append(row)
+
+            return processed
 
 @client.event
 async def on_ready():
@@ -37,14 +45,14 @@ async def on_message(message):
         url = "https://shibanban2.github.io/bc-event/token/sale.tsv"
         rows = await fetch_tsv(url)
 
-        found = None
+        found_rows = []
         for row in rows:
             if sale_id in row:  # 行にそのIDが含まれていれば
-                found = "\t".join(row)
-                break
+                found_rows.append("\t".join(row))
 
-        if found:
-            await message.channel.send(found)
+        if found_rows:
+            reply = "\n".join(found_rows)
+            await message.channel.send(f"```\n{reply}\n```")
         else:
             await message.channel.send(f"ID {sale_id} は見つかりませんでした")
 
@@ -55,5 +63,4 @@ if TOKEN:
     client.run(TOKEN)
 else:
     print("Tokenが見つかりませんでした")
-
 
