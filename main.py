@@ -313,46 +313,60 @@ async def on_message(message):
         return
 
     if message.content.lower() == "ping":
-        await message.channel.send("Pong.2")
+        await message.channel.send("Pong.3")
 
     if message.content.startswith("sale "):
-        _, sale_id_str = message.content.split(" ", 1)
+        query = message.content.split(" ", 1)[1].strip()
+
+        # IDかステージ名かを判定
+        sale_id = None
+        sale_name = None
         try:
-            sale_id = int(sale_id_str)
+            sale_id = int(query)
         except ValueError:
-            await message.channel.send("IDは数値で入力してください")
-            return
+            sale_name = query
 
         sale_url = "https://shibanban2.github.io/bc-event/token/sale.tsv"
         rows = await fetch_tsv(sale_url)
         stage_map = await load_stage_map()
 
         outputs = []
-        seen_headers = set()  # 追加: 重複除外用
+        found_ids = set()
+
         for row in rows:
             ids = extract_event_ids(row)
-            if sale_id in ids:
-                name = stage_map.get(sale_id, "")
-                header = f"[{sale_id} {name}]" if name else f"[{sale_id}]"
 
-                # 重複確認
-                if header in seen_headers:
+            for eid in ids:
+                name = stage_map.get(eid, "")
+
+                # --- ID指定のとき ---
+                if sale_id is not None and eid != sale_id:
                     continue
-                seen_headers.add(header)
 
+                # --- 名前指定のとき（部分一致） ---
+                if sale_name is not None and sale_name not in name:
+                    continue
+
+                header = f"[{eid} {name}]" if name else f"[{eid}]"
                 period_line = _fmt_date_range_line(row)
                 ver_line = _version_line(row)
                 note = build_monthly_note(row)
 
+                # 同じIDが出てきた場合、タイトルは1度だけ
+                if eid not in found_ids:
+                    outputs.append(header)
+                    found_ids.add(eid)
+
+                # イベント本体を追加
                 if note:
-                    outputs.append(f"{header}\n{period_line}\n{ver_line}\n```{note}```")
+                    outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
                 else:
-                    outputs.append(f"{header}\n{period_line}\n{ver_line}")
+                    outputs.append(f"{period_line}\n{ver_line}")
 
         if outputs:
-            await message.channel.send("\n\n".join(outputs))
+            await message.channel.send("\n".join(outputs))
         else:
-            await message.channel.send(f"ID {sale_id} は見つかりませんでした")
+            await message.channel.send(f"'{query}' は見つかりませんでした")
 
 
 # 実行
