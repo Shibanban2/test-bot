@@ -364,7 +364,7 @@ async def on_message(message):
         return
 
     if message.content.lower() == "ping":
-        await message.channel.send("Pong.5")
+        await message.channel.send("Pong.6")
 
     if message.content.startswith("sale "):
         query = message.content.split(" ", 1)[1].strip()
@@ -418,7 +418,7 @@ else:
 
     
  # 新規 gt コマンド
-    if content.startswith("gt"):
+    if content.strip().startswith("gt"):
         gatya_rows, name_map, item_map = await load_gatya_maps()
         outputs = []
         for row in gatya_rows[1:]:
