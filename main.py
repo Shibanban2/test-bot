@@ -17,7 +17,6 @@ async def fetch_tsv(url):
         async with session.get(url) as resp:
             text = await resp.text()
             rows = [line.split("\t") for line in text.strip().split("\n")]
-
             processed = []
             for row in rows:
                 if "".join(row).strip() == "":
@@ -37,7 +36,7 @@ async def load_stage_map():
         if len(row) >= 2:
             try:
                 stage_id = int(row[0])
-                stage_name = row[1]
+                stage_name = row[1]  # 2列目そのまま
                 stage_map[stage_id] = stage_name
             except ValueError:
                 continue
@@ -62,12 +61,8 @@ def extract_ids(row):
             break
     return ids
 
-# ===== parseSchedule (GASのD列相当) =====
+# ===== parseSchedule (Python移植版) =====
 def parse_schedule(row):
-    """
-    row: sale.tsv の 1行 (list[str])
-    """
-    # 形式: startDate startTime endDate endTime minVer maxVer ... の想定
     try:
         start_date, start_time, end_date, end_time, min_ver, max_ver = row[:6]
     except ValueError:
@@ -75,15 +70,67 @@ def parse_schedule(row):
 
     def fmt_date(d, t):
         yyyy, mm, dd = d[:4], d[4:6], d[6:8]
-        return f"{yyyy}/{mm}/{dd}({t})"
+        hh = str(int(t) // 100).zfill(2)
+        mi = str(int(t) % 100).zfill(2)
+        return f"{yyyy}/{mm}/{dd}({hh}:{mi})"
 
     start_fmt = fmt_date(start_date, start_time)
     end_fmt = fmt_date(end_date, end_time)
     version_str = f"v:{min_ver}-{max_ver}"
 
-    # D列相当は、ここでは「row[6:] を空白区切りで連結」して返すイメージ
-    d_col = " ".join(row[6:]).strip()
-    return f"{start_fmt}〜{end_fmt}\n{version_str}\n{d_col}"
+    # GASと同じく、999999 以降を渡して解析
+    nums = []
+    for v in row[6:]:
+        try:
+            nums.append(int(v))
+        except ValueError:
+            continue
+
+    sched_text = parse_schedule_core(nums) if nums else ""
+    return f"{start_fmt}〜{end_fmt}\n{version_str}\n{sched_text}"
+
+# ===== parseSchedule の本体 (GAS移植) =====
+def parse_schedule_core(row):
+    if len(row) < 2 or row[0] != 999999 or row[1] != 0:
+        return ""
+
+    DAYS = [("日", 1), ("月", 2), ("火", 4), ("水", 8),
+            ("木", 16), ("金", 32), ("土", 64)]
+
+    def fmt_time(t):
+        n = int(t)
+        return f"{n//100:02d}:{n%100:02d}"
+
+    def fmt_mmdd(d):
+        s = str(d).zfill(4)
+        return f"{s[:2]}/{s[2:]}"
+
+    def decode_days(bit):
+        b = int(bit)
+        arr = [name for name, val in DAYS if (b & val) == val]
+        return "・".join(arr)
+
+    out = []
+
+    # 例: 曜日指定 (毎週月曜など)
+    if row[2] >= 1 and row[3] == 0 and row[4] == 0:
+        block_count = row[2]
+        p = 5
+        for _ in range(block_count):
+            day_id = row[p]; p += 1
+            time_count = row[p]; p += 1
+            times = []
+            for _ in range(time_count):
+                s, e = row[p], row[p+1]; p += 2
+                times.append(f"{fmt_time(s)}～{fmt_time(e)}")
+            if row[p] == 0 and row[p+1] == 0:
+                p += 2
+            label = decode_days(day_id)
+            label_out = f"{label}曜日" if "・" not in label else label
+            out.append(f"毎週{label_out}" if not times else f"{label_out} {' & '.join(times)}")
+        return "\n".join(out)
+
+    return ""
 
 # ===== Discord Bot =====
 @client.event
@@ -106,7 +153,6 @@ async def on_message(message):
             await message.channel.send("IDは数値で入力してください")
             return
 
-        # TSV 読み込み
         sale_url = "https://shibanban2.github.io/bc-event/token/sale.tsv"
         rows = await fetch_tsv(sale_url)
         stage_map = await load_stage_map()
@@ -115,18 +161,16 @@ async def on_message(message):
         for row in rows:
             ids = extract_ids(row)
             if sale_id in ids:
-                # 名前付与
-                names = [stage_map.get(eid, "") for eid in ids]
-                id_with_name = ", ".join(
-                    f"{eid} {names[i]}" if names[i] else str(eid)
-                    for i, eid in enumerate(ids)
-                )
                 schedule_info = parse_schedule(row)
-                found_rows.append(f"[{id_with_name}]\n{schedule_info}")
+                # ここで IDs を分解して1つずつ出力
+                for eid in ids:
+                    name = stage_map.get(eid, "")
+                    id_with_name = f"{eid}　{name}" if name else str(eid)
+                    found_rows.append(f"[{id_with_name}]\n{schedule_info}")
 
         if found_rows:
             reply = "\n\n".join(found_rows)
-            await message.channel.send(f"```\n{reply}\n```")
+            await message.channel.send(reply)
         else:
             await message.channel.send(f"ID {sale_id} は見つかりませんでした")
 
