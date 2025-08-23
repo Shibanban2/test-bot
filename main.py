@@ -407,7 +407,7 @@ async def on_message(message):
             else:
                 if header is None:
                     header = "[]"
-                await message.channel.send(f"{header}\n該当するスケジュールは見つかりませんでした")
+                await message.channel.send(f"{header}\nスケジュールが見つかりませんでした")
         except Exception as e:
             print(f"Error in {PREFIX}sale command: {e}")
             await message.channel.send("エラーが発生しました。")
