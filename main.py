@@ -365,8 +365,11 @@ async def on_message(message):
 
     if message.content.lower() == "ping.":
         await message.channel.send("Pong.")
-PREFIX = "!"
-if message.content.startswith(f"{PREFIX}sale "):
+
+    PREFIX = "!"  # PREFIX はここで定義（関数内で毎回定義するのは非効率ですが、元のコードを尊重）
+    
+    # !sale コマンド
+    if message.content.startswith(f"{PREFIX}sale "):
         query = message.content.split(" ", 1)[1].strip()
 
         # IDかステージ名かを判定
@@ -397,36 +400,39 @@ if message.content.startswith(f"{PREFIX}sale "):
                 # --- 名前指定のとき（部分一致） ---
                 if sale_name is not None and sale_name not in name:
                     continue
-              # タイトルは必ず出す
-header = f"[{eid} {name}]" if name else f"[{eid}]"
-if eid not in found_ids:
-    outputs.append(header)
-    found_ids.add(eid)
-    
-note = build_monthly_note(row)
-period_line = _fmt_date_range_line(row)
-ver_line = _version_line(row)
-# その後、note があれば追加
-if note:
-    outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
-else:
-    outputs.append(f"{period_line}\n{ver_line}")
-if outputs:
-  await message.channel.send("\n".join(outputs))
-else:
-   await message.channel.send(f"'{query}' は見つかりませんでした")
-   
- # 新規 gt コマンド
-if message.content.startswith(f"{PREFIX}gt"):
-   gatya_rows, name_map, item_map = await load_gatya_maps()
+
+                # タイトルは必ず出す
+                header = f"[{eid} {name}]" if name else f"[{eid}]"
+                if eid not in found_ids:
+                    outputs.append(header)
+                    found_ids.add(eid)
+                
+                note = build_monthly_note(row)
+                period_line = _fmt_date_range_line(row)
+                ver_line = _version_line(row)
+                # その後、note があれば追加
+                if note:
+                    outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
+                else:
+                    outputs.append(f"{period_line}\n{ver_line}")
+
+        if outputs:
+            await message.channel.send("\n".join(outputs))
+        else:
+            await message.channel.send(f"'{query}' は見つかりませんでした")
+
+    # !gt コマンド
+    if message.content.startswith(f"{PREFIX}gt"):
+        gatya_rows, name_map, item_map = await load_gatya_maps()
         outputs = []
-    for row in gatya_rows[1:]:
-        lines = parse_gatya_row(row, name_map, item_map)
-        outputs.extend(lines)
-     if outputs:
-        await message.channel.send("\n".join(outputs))
-    else:
-        await message.channel.send("ガチャ情報は見つかりませんでした")
+        for row in gatya_rows[1:]:
+            lines = parse_gatya_row(row, name_map, item_map)
+            outputs.extend(lines)
+        
+        if outputs:
+            await message.channel.send("\n".join(outputs))
+        else:
+            await message.channel.send("ガチャ情報は見つかりませんでした")
 
 # 実行
 keep_alive()
