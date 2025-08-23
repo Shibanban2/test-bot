@@ -49,13 +49,11 @@ def format_date(d):
 def format_time(t):
     try:
         t = int(t)
-        if t == 0 or t == 1100:
-            return ""
         hour = str(t // 100).zfill(2)
         min = str(t % 100).zfill(2)
         return f"{hour}:{min}"
     except (ValueError, TypeError):
-        return ""
+        return "00:00"
 
 def format_ver(num):
     try:
@@ -382,7 +380,7 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
 
     gname = name_map.get(id, f"error[{id}]")
     date_range = f"{format_date(start_date)} ({get_day_of_week(start_date)}) {format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}) {format_time(end_time)}"
-    col_k = f"{date_range}\n {id} {gname}{confirm}"
+    col_k = f"{date_range}\n 　{id} {gname}{confirm}"
     if extra:
         col_k += f" {extra}"
     output_lines.append(col_k)
