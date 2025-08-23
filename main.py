@@ -415,7 +415,7 @@ async def on_message(message):
                     outputs.append(f"{period_line}\n{ver_line}\n```{note}```")
                 else:
                     outputs.append(f"{period_line}\n{ver_line}")
-　　if outputs:
+　                if outputs:
     await message.channel.send("\n".join(outputs))
 else:
     # ID が分かっている場合はそれを使う
@@ -427,7 +427,6 @@ else:
     else:
         header = "[不明]"
     await message.channel.send(header + "\n該当するスケジュールは見つかりませんでした")
-
 
 
     # !gt コマンド
