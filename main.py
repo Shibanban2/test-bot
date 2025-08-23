@@ -364,7 +364,7 @@ async def on_message(message):
         return
 
     if message.content.lower() == "ping":
-        await message.channel.send("Pong.3")
+        await message.channel.send("Pong.4")
 
     if message.content.startswith("sale "):
         query = message.content.split(" ", 1)[1].strip()
