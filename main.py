@@ -381,13 +381,8 @@ def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
         return output_lines
 
     gname = name_map.get(id, f"error[{id}]")
-    ver_text = ""
-    if min_ver and min_ver != 0:
-        ver_text += f"[要Ver.{format_ver(min_ver)}]"
-    if max_ver and max_ver != 999999:
-        ver_text += f"[Ver.{format_ver(max_ver)}まで]"
-    date_range = f"{format_date(start_date)}({get_day_of_week(start_date)}){format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}){format_time(end_time)}"
-    col_k = f"{date_range} {id} {gname}{confirm}{ver_text}"
+    date_range = f"{format_date(start_date)} ({get_day_of_week(start_date)}) {format_time(start_time)}〜{format_date(end_date)}({get_day_of_week(end_date)}) {format_time(end_time)}"
+    col_k = f"{date_range}\n {id} {gname}{confirm}"
     if extra:
         col_k += f" {extra}"
     output_lines.append(col_k)
