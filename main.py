@@ -311,7 +311,7 @@ async def load_gatya_maps():
         print(f"Error in load_gatya_maps: {e}")
         raise
 
-def parse_gatya_row(row, name_map, item_map, today_str="20250823"):
+def parse_gatya_row(row, name_map, item_map, today_str="20251030"):
     output_lines = []
     try:
         start_date = str(row[0])
