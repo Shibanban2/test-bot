@@ -4,9 +4,6 @@ import aiohttp
 from dotenv import load_dotenv
 from keep_alive import keep_alive
 from datetime import datetime
-import matplotlib.pyplot as plt
-from PIL import Image
-import io
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -395,31 +392,6 @@ def lookup_extra(code, item_map):
     except (ValueError, TypeError):
         return ""
 
-
-# 画像生成関数
-def create_gacha_image(gacha_data):
-    plt.figure(figsize=(10, 6))
-    plt.title("ガチャスケジュール", fontsize=16, color='white')
-    plt.xlabel("日付", fontsize=12, color='white')
-    plt.ylabel("ガチャ名", fontsize=12, color='white')
-    plt.xticks(color='white')
-    plt.yticks(color='white')
-    plt.gca().set_facecolor('#1a1a1a')
-    plt.gcf().set_facecolor('#1a1a1a')
-
-    dates = [data.split('\n')[0] for data in gacha_data]
-    names = [data.split('\n')[1].replace('　', '').split(' ', 1)[1] for data in gacha_data]
-
-    plt.barh(names, [1] * len(names), color=['#ff9999', '#66b3ff'], align='center')
-    for i, (date, name) in enumerate(zip(dates, names)):
-        plt.text(0.5, i, date, ha='center', va='center', color='white')
-
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
-    buf.seek(0)
-    plt.close()
-    return buf
-    
 # =========================
 # Discord Bot
 # =========================
@@ -490,11 +462,7 @@ async def on_message(message):
                 lines = parse_gatya_row(row, name_map, item_map, today_str)
                 outputs.extend(lines)
             if outputs:
-                 # テキスト送信
                 await message.channel.send("\n".join(outputs))
-                # 画像生成と送信
-                img_buf = create_gacha_image(outputs)
-                await message.channel.send(file=discord.File(img_buf, filename="gacha_schedule.png"))
             else:
                 await message.channel.send("今日以降のスケジュールは見つかりませんでした")
         except Exception as e:
