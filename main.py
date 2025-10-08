@@ -482,7 +482,7 @@ async def on_message(message):
 
                 if query.isdigit() and sid == query:
                     matches.append(row)
-                elif query.upper().startswith("S") and code.upper() == query.upper():
+                elif query.upper() == code.upper():
                     matches.append(row)
                 elif query in name:
                     matches.append(row)
