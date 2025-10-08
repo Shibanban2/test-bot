@@ -468,7 +468,7 @@ async def on_message(message):
         except Exception as e:
             print(f"Error in {PREFIX}gt command: {e}")
             await message.channel.send("エラーが発生しました。")
-        if message.content.lower().startswith(f"{PREFIX}st "):
+    if message.content.lower().startswith(f"{PREFIX}st "):
         try:
             query = message.content.split(" ", 1)[1].strip()
             url = "https://shibanban2.github.io/bc-event/token/exodia.tsv"
