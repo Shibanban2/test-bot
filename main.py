@@ -454,42 +454,6 @@ async def on_message(message):
             print(f"Error in {PREFIX}sale command: {e}")
             await message.channel.send("エラーが発生しました。")
     if message.content.lower().startswith(f"{PREFIX}gt"):
-            if message.content.lower().startswith(f"{PREFIX}st "):
-        try:
-            query = message.content.split(" ", 1)[1].strip()
-            url = "https://shibanban2.github.io/bc-event/token/exodia.tsv"
-            rows = await fetch_tsv(url)
-            matches = []
-
-            for row in rows:
-                if len(row) < 5:
-                    continue
-                sid, code, name, map_url, pdf_url = row[:5]
-
-                if query.isdigit() and sid == query:
-                    matches.append(row)
-                elif query.upper().startswith("S") and code.upper() == query.upper():
-                    matches.append(row)
-                elif query in name:
-                    matches.append(row)
-
-            if len(matches) == 0:
-                await message.channel.send("該当するステージが見つかりませんでした。")
-            elif len(matches) > 3:
-                summary = ", ".join(f"{m[1]} {m[2]}" for m in matches[:50])
-                await message.channel.send(f"```{summary}```")
-            else:
-                results = []
-                for m in matches:
-                    sid, code, name, map_url, pdf_url = m[:5]
-                    results.append(
-                        f"{code}({sid}) {name}\n{map_url}\n{pdf_url}"
-                    )
-                await message.channel.send("\n\n".join(results))
-        except Exception as e:
-            print(f"Error in {PREFIX}st command: {e}")
-            await message.channel.send("エラーが発生しました。")
-
         try:
             gatya_rows, name_map, item_map = await load_gatya_maps()
             outputs = []
@@ -512,3 +476,4 @@ if TOKEN:
     client.run(TOKEN)
 else:
     print("Tokenが見つかりませんでした")
+
